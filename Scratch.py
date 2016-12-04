@@ -26,7 +26,7 @@ dataset = read_hdf('train.h5')
 keys = list(dataset.keys())
 print(keys)
 
-plot_column(dataset, 'technical_43', 0, 1000)
+plot_column(dataset, 'technical_44', 0, 1000)
 
 
 #counter = collections.Counter(time)
