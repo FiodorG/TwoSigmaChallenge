@@ -1,16 +1,16 @@
 from __future__ import print_function
 import numpy as np
 import pandas as pd
-import h5py
-from pandas import read_hdf
-import collections
 import matplotlib.pyplot as plt
+import seaborn as sns
+from pandas.tools.plotting import autocorrelation_plot
 
-def plot_column(dataset, column, index_start = 0, index_end = -1):
+
+def plot_column(dataset, column, index_start=0, index_end=-1):
 
     if index_end != -1:
-        values = dataset[column][index_start:index_end]
-        times = np.arange(index_end - index_start)
+        values = np.cumsum(dataset[column][index_start:index_end])
+        times = np.arange(index_end - index_start)/750/365
     else:
         values = dataset[column][index_start:]
         times = np.arange(len(values) - index_start)
@@ -22,24 +22,72 @@ def plot_column(dataset, column, index_start = 0, index_end = -1):
     plt.show()
 
 
-dataset = read_hdf('train.h5')
-keys = list(dataset.keys())
-print(keys)
+def show_y_stats(dataset):
+    n = dataset['timestamp']
+    y_mean = dataset['y']['mean']
+    y_std = dataset['y']['std']
 
-plot_column(dataset, 'technical_44', 0, 1000)
+    plt.plot(n, y_mean, '.')
+    plt.xlabel('n')
+    plt.ylabel('$y_{n}^{Mean}$')
+    plt.show()
+    plt.savefig('yMean.png')
+
+    plt.plot(n, y_std, '.')
+    plt.xlabel('n')
+    plt.ylabel('$y_{n}^{Std}$')
+    plt.show()
+    plt.savefig('yStd.png')
 
 
-#counter = collections.Counter(time)
-#time = hdf['timestamp']
-#keys = list(counter.keys())
-#values = list(counter.values())
+def plot_all_graphs(df):
+    i = 0
+    n = 5
+    columns = df.columns
+    while True:
+        if i >= len(columns):
+            break
+        for j in range(n):
+            if i >= len(columns):
+                break
 
-#plt.hist(values, bins='auto')
-#plt.show()
+            if j == 0:
+                plt.figure(figsize=(8, 8.0 / n))
 
-#plt.bar(keys, values)
-#plt.ylabel('# data in timestamp')
-#plt.xlabel('timestamp')
-#plt.show()
+            plt.axes([j * 1.0 / n, 0, 1.0 / n, 1])
+            plt.plot(df['timestamp'], df[columns[i]])
+            plt.xticks([])
+            plt.yticks([])
+            i += 1
+    plt.show()
 
+
+with pd.HDFStore("train.h5", "r") as data_file:
+    dataset = data_file.get("train")
+
+column_all = dataset.columns
+columns_derived = [c for c in dataset.columns if 'derived' in c] + ['timestamp']
+columns_fundamental = [c for c in dataset.columns if 'fundamental' in c] + ['timestamp']
+columns_technical = [c for c in dataset.columns if 'technical' in c] + ['timestamp']
+
+#plot_column(dataset, 'y', 0, 1500000)
+
+df = dataset[['timestamp', 'y']].groupby('timestamp').agg([np.mean, np.std, len]).reset_index()
+df_derived = dataset[columns_derived].groupby('timestamp').agg([np.mean]).reset_index()
+#df_fundamental = dataset[columns_fundamental].groupby('timestamp').agg([np.mean, np.std, len]).reset_index()
+#df_technical = dataset[columns_technical].groupby('timestamp').agg([np.mean, np.std, len]).reset_index()
+
+#yMean = df1['y']['mean']
+#yMean = dataset['y'].head(n=1000)
+#plt.figure()
+#autocorrelation_plot(yMean)
+
+#plot_all_graphs(df_derived)
+yMean = df['y']['mean']
+corrColumns = [c for c in df_derived.columns if 'timestamp' not in c]
+derived = np.array([df_derived[c] for c in corrColumns])
+Corr = np.corrcoef(yMean, derived)
+sns.clustermap(pd.DataFrame(np.abs(Corr), columns=['---y--']+[c[0].split('_')[1] for c in corrColumns]))
+
+plt.show()
 print()
