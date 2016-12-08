@@ -20,23 +20,10 @@ df_y = dataset[['id', 'timestamp', 'y']]
 # df_fundamental = dataset[columns_fundamental].groupby('timestamp').agg([np.mean, np.std, len]).reset_index()
 # df_technical = dataset[columns_technical].groupby('timestamp').agg([np.mean, np.std, len]).reset_index()
 
-Visualization.plot_pca(dataset, 'y')
-
-# temp = df_y.apply(len).sort_values(ascending=False).reset_index()
-# print(temp.head(5))
-# temp2 = df_y[df_y['id'].isin(temp['id'][1:2].values)]
-# temp2 = temp2[['timestamp', 'y']]
-# print(temp2)
-# plt.figure(figsize=(8, 4))
-# plt.plot(temp2['timestamp'], np.cumsum(temp2['y']))
-# plt.xlabel('timestamp')
-# plt.ylabel('y')
-# plt.show()
-
-# Visualization.plot_column_per_id_and_timestamp(dataset, 'derived_3')
+# Visualization.plot_column_per_id_and_timestamp(dataset, 'technical_7')
 # Visualization.plot_column(dataset, 'y', 800, True)
-
-
+# Visualization.plot_pca(dataset, 'derived_3')
+Visualization.plot_stock_prices(dataset, 'fundamental_28', 200, False)
 
 #plot_all_graphs(df_derived)
 #yMean = df['y']['mean']

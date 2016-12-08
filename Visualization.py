@@ -68,7 +68,7 @@ def plot_all_graphs(df):
     
     
 def plot_column_per_id_and_timestamp(dataset, column):
-
+    dataset = dataset[['id', 'timestamp', column]]
     instr_time = dataset.groupby('id').agg({'timestamp': [np.min, np.max]})
     sort_order = instr_time.sort_values(by=[('timestamp', 'amin'), ('timestamp', 'amax')]).index
     # df[column] += 0.2
@@ -91,7 +91,7 @@ def plot_pca(dataset, column):
     dim = df.shape
     # print(df.head())
     # print(dim)
-    n = 1000
+    n = 200
     pca = PCA(n_components=n, whiten=True)
     pca.fit(df)
 
@@ -109,27 +109,40 @@ def plot_pca(dataset, column):
     plt.subplot(512)
     plt.plot(reduced_data[:, 0], 'r')
     plt.ylabel('PC1')
-    plt.xlabel('timestamp')
+    plt.xlabel('Timestamp')
     plt.xlim([0, dim[0]])
 
     plt.subplot(513)
     plt.plot(reduced_data[:, 1], 'g')
     plt.ylabel('PC2')
-    plt.xlabel('timestamp')
+    plt.xlabel('Timestamp')
     plt.xlim([0, dim[0]])
 
     plt.subplot(514)
     plt.bar(np.arange(dim[1]), pca.components_[0, :])
-    plt.ylabel('weight of asset id in PC1')
-    plt.xlabel('id')
+    plt.ylabel('Weight in PC1')
+    plt.xlabel('Id')
     plt.xlim([0, dim[1]])
 
     plt.subplot(515)
     plt.bar(np.arange(dim[1]), pca.components_[1, :])
-    plt.ylabel('weight of asset id in PC2')
-    plt.xlabel('id')
+    plt.ylabel('Weight in PC2')
+    plt.xlabel('Id')
     plt.xlim([0, dim[1]])
 
     plt.show()
-    print()
 
+
+def plot_stock_prices(dataset, column, n, cumsum):
+    for i, (idVal, dfG) in enumerate(dataset[['id', 'timestamp', column]].groupby('id')):
+        if i > n:
+            break
+        df1 = dfG[['timestamp', column]].groupby('timestamp').agg(np.mean).reset_index()
+
+        if cumsum:
+            series = np.cumsum(df1[column])
+        else:
+            series = df1[column]
+
+        plt.plot(df1['timestamp'], series, label='%d' % idVal)
+        plt.xlim([0, 1824])
