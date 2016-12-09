@@ -6,6 +6,9 @@ import seaborn as sns
 import pandas.tools.plotting as pdtools
 import sklearn.preprocessing as skpre
 from sklearn.decomposition import PCA
+from sklearn import linear_model
+from sklearn import datasets
+from sklearn.preprocessing import StandardScaler
 
 def plot_column(dataset, column, id, cumsum=False, index_start=0, index_end=-1):
     dataset = dataset[dataset['id'] == id]
@@ -146,3 +149,54 @@ def plot_stock_prices(dataset, column, n, cumsum):
 
         plt.plot(df1['timestamp'], series, label='%d' % idVal)
         plt.xlim([0, 1824])
+
+
+def plot_all_columns_for_id(dataset, id, columns_derived, columns_fundamental, columns_technical):
+    dataset = dataset[dataset.id == id].fillna(0)
+    df_y = dataset[['y']]
+    df_derived = dataset[columns_derived].drop(['id', 'timestamp'], axis=1)
+    df_fundamental = dataset[columns_fundamental].drop(['id', 'timestamp'], axis=1)
+    df_technical = dataset[columns_technical].drop(['id', 'timestamp'], axis=1)
+
+    plt.figure(1)
+    plt.subplot(411)
+    plt.title('id: %d' % id)
+    plt.plot(dataset['timestamp'], df_y)
+    plt.ylabel('y')
+    plt.subplot(412)
+    plt.plot(dataset['timestamp'], df_derived)
+    plt.ylabel('derived')
+    plt.subplot(413)
+    plt.plot(dataset['timestamp'], df_fundamental)
+    plt.ylabel('fundamental')
+    plt.subplot(414)
+    plt.plot(dataset['timestamp'], df_technical)
+    plt.ylabel('technical')
+    plt.xlabel('timestamp')
+    plt.show()
+
+
+def linear_regression(dataset, id, column_to_predict, n):
+    dataset = dataset[dataset.id == id]
+    x = dataset.drop(['id', 'timestamp', column_to_predict], axis=1).fillna(0).values
+    y = dataset[[column_to_predict]].fillna(0).values[:, 0]
+
+    pca = PCA(n_components=n, whiten=True)
+    x = pca.fit_transform(x)
+
+    alphas_lars, _, coef_path_lars = linear_model.lars_path(x, y, method='lars')
+    # coef_path_cont_lars = interpolate.interp1d(alphas_lars[::-1], coef_path_lars[:, ::-1])
+    xx = np.sum(np.abs(coef_path_lars.T), axis=1)
+    xx /= xx[-1]
+    plt.plot(xx, coef_path_lars.T)
+    ymin, ymax = plt.ylim()
+    plt.vlines(xx, ymin, ymax, linestyle='dashed')
+    plt.xlabel('|coef|/max|coef|')
+    plt.ylabel('Coefficients')
+    plt.axis('tight')
+    plt.show()
+
+    res = linear_model.Lars(n_nonzero_coefs=n, fit_intercept=True, normalize=True)
+    res.fit(x, y)
+    print(res.score(x, y))
+

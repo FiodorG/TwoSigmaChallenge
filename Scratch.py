@@ -23,7 +23,9 @@ df_y = dataset[['id', 'timestamp', 'y']]
 # Visualization.plot_column_per_id_and_timestamp(dataset, 'technical_7')
 # Visualization.plot_column(dataset, 'y', 800, True)
 # Visualization.plot_pca(dataset, 'derived_3')
-Visualization.plot_stock_prices(dataset, 'fundamental_28', 200, False)
+# Visualization.plot_stock_prices(dataset, 'fundamental_28', 200, False)
+# Visualization.plot_all_columns_for_id(dataset, 500, columns_derived, columns_fundamental, columns_technical)
+Visualization.linear_regression(dataset, 500, 'y', 20)
 
 #plot_all_graphs(df_derived)
 #yMean = df['y']['mean']
@@ -32,7 +34,6 @@ Visualization.plot_stock_prices(dataset, 'fundamental_28', 200, False)
 #Corr = np.corrcoef(yMean, derived)
 #sns.clustermap(pd.DataFrame(np.abs(Corr), columns=['---y--']+[c[0].split('_')[1] for c in corrColumns]))
 
-plt.show()
 print(columns_derived)
 print(columns_fundamental)
 print(columns_technical)
