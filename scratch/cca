@@ -1,0 +1,242 @@
+def warn(*args, **kwargs):
+    pass
+import warnings
+warnings.warn = warn
+
+import pandas as pd
+import numpy as np
+import scipy
+import matplotlib.pyplot as plt
+import collections
+from libraries import kagglegym
+from sklearn.cluster import *
+import scipy.signal
+import random
+from libraries import visualization
+from sklearn import *
+from sklearn.feature_selection import *
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.svm import SVR
+from sklearn.ensemble import *
+from hmmlearn import hmm
+from sklearn.pipeline import Pipeline
+from sklearn.grid_search import GridSearchCV
+from sklearn.learning_curve import learning_curve
+from sklearn.model_selection import *
+import timeit
+from sklearn.manifold import TSNE
+from sklearn.metrics import *
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
+import xgboost as xgb
+import scipy.spatial.distance as ssd
+from scipy.cluster.hierarchy import *
+from itertools import chain
+from pylab import rcParams
+from matplotlib.collections import LineCollection
+#from utilities import df_columns, add_features, r_score, clean_data, time_series_cv, add_y_inferred
+from sklearn.decomposition import PCA
+from sklearn.cross_decomposition import PLSRegression
+from fastdtw import fastdtw
+from scipy.spatial.distance import euclidean
+import sys
+from math import *
+import statsmodels.formula.api as smf
+from sklearn.cross_decomposition import *
+
+np.random.seed(42)
+pd.set_option('display.max_columns', 120)
+np.set_printoptions(precision=5, suppress=True)
+
+
+#########################################################
+class recursive_outlier_elimination():
+    def __init__(self, model, quantile=.999, floor_train_size=.9):
+        self.quantile = quantile
+        self.floor_train_size = floor_train_size
+        self.remaining_rows = []
+        self.model = model
+        self.best_model = []
+       
+    def fit(self, train, response_variable):
+        best_score = sys.maxsize
+        
+        self.remaining_rows = train.index
+                    
+        while True:
+            x = train.ix[self.remaining_rows]
+            y = response_variable.ix[self.remaining_rows]
+            
+            self.model.fit(x, y)
+            score = metrics.mean_squared_error(self.model.predict(x), y)
+            if score < best_score:
+                best_score = score
+                
+                residuals = y - self.model.predict(x)
+                self.remaining_rows = residuals[abs(residuals) <= abs(residuals).quantile(self.quantile)].index                 
+                self.best_model = self.model
+
+                if len(self.remaining_rows) < len(train) * self.floor_train_size:
+                    break
+            else:
+                self.best_model = self.model
+                break
+
+    def predict(self, test):
+        return self.best_model.predict(test)
+
+
+#########################################################
+with pd.HDFStore("../input/train.h5", "r") as data_file:
+    df = data_file.get("train")
+
+id = 500
+col = 'technical_30'
+df = df[df.id == id]
+
+
+
+#########################################################
+if False:
+    plt.figure(1)
+    plt.scatter(df.technical_20, df.y, color='red')
+    
+    model = linear_model.LinearRegression(normalize=True)
+    model.fit(df[[col]], df[['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    plt.plot(df.technical_20, df.technical_20.values * beta + alpha, color='blue')
+    
+    model = linear_model.LinearRegression(normalize=True)
+    model.fit(df[df.technical_20 != 0][[col]], df[df.technical_20 != 0][['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    plt.plot(df.technical_20, df.technical_20.values * beta + alpha, color='green')
+    
+    model = linear_model.Ridge(normalize=True)
+    model.fit(df[[col]], df[['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    plt.plot(df.technical_20, df.technical_20.values * beta + alpha, color='yellow')
+    
+    #model = linear_model.TheilSenRegressor(n_subsamples=None, n_jobs=-1, max_subpopulation=100)
+    #model.fit(df[[col]], df[['y']])
+    #beta = model.coef_[0][0]
+    #alpha = model.intercept_[0]
+    
+    model = linear_model.RANSACRegressor(linear_model.LinearRegression(normalize=True))
+    model.fit(df[[col]], df[['y']])
+    beta = model.estimator_.coef_[0][0]
+    alpha = model.estimator_.intercept_[0]
+    plt.plot(df.technical_20, df.technical_20.values * beta + alpha, color='purple')
+    
+    plt.show()
+
+
+#########################################################
+if False:
+    df_test = df[df.timestamp >= 1000]
+    df = df[df.timestamp < 1000]
+    y = df_test['y']
+    
+    tscv = TimeSeriesSplit(n_splits=4)
+    print(tscv)  
+    for train_index, test_index in tscv.split(df):
+       print("TRAIN:", train_index, "TEST:", test_index)
+       
+    plt.figure(1)
+    plt.scatter(df[col], df.y, color='red')
+    
+    model = linear_model.LinearRegression(normalize=True)
+    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    mse = metrics.mean_squared_error(model.predict(df_test[[col]]), y)
+    score = r_score(model.predict(df_test[[col]]), y) * 100
+    print(str(0)+', '+str(beta)+', '+str(alpha)+', '+str(score)+', '+str(mse))
+    plt.plot(df[col], df[col].values * beta + alpha, color='red')
+    
+    model = linear_model.RidgeCV(alphas=np.logspace(-4, 1, num=6), normalize=True, cv=KFold(n_splits=8))
+    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    y_predicted = model.predict(df_test[[col]])
+    mse = metrics.mean_squared_error(model.predict(df_test[[col]]), y)
+    score = r_score(model.predict(df_test[[col]]), y) * 100
+    print(str(model.alpha_)+', '+str(beta)+', '+str(alpha)+', '+str(score)+', '+str(mse))
+    plt.plot(df[[col]], df[[col]].values * beta + alpha, color='yellow')
+    
+    model = linear_model.RidgeCV(alphas=np.logspace(-4, 1, num=6), normalize=True, cv=TimeSeriesSplit(n_splits=8))
+    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+    beta = model.coef_[0][0]
+    alpha = model.intercept_[0]
+    y_predicted = model.predict(df_test[[col]])
+    mse = metrics.mean_squared_error(model.predict(df_test[[col]]), y)
+    score = r_score(model.predict(df_test[[col]]), y) * 100
+    print(str(model.alpha_)+', '+str(beta)+', '+str(alpha)+', '+str(score)+', '+str(mse))
+    plt.plot(df[[col]], df[[col]].values * beta + alpha, color='blue')
+    
+    model = linear_model.BayesianRidge(normalize=True)
+    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+    beta = model.coef_[0]
+    alpha = model.intercept_
+    y_predicted = model.predict(df_test[[col]])
+    mse = metrics.mean_squared_error(model.predict(df_test[[col]]), y)
+    score = r_score(model.predict(df_test[[col]]), y) * 100
+    print(str(model.alpha_)+', '+str(beta)+', '+str(alpha)+', '+str(score)+', '+str(mse))
+    plt.plot(df[[col]], df[[col]].values * beta + alpha, color='purple')
+    
+    model_t = linear_model.RidgeCV(fit_intercept=True, cv=model_selection.TimeSeriesSplit(n_splits=2))
+    model = recursive_outlier_elimination(model=model_t, quantile=.99, floor_train_size=.85)
+    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+    beta = model.best_model.coef_[0][0]
+    alpha = model.best_model.intercept_[0]
+    y_predicted = model.best_model.predict(df_test[[col]])
+    mse = metrics.mean_squared_error(model.best_model.predict(df_test[[col]]), y)
+    score = r_score(model.best_model.predict(df_test[[col]]), y) * 100
+    print(str(model.best_model.alpha_)+', '+str(beta)+', '+str(alpha)+', '+str(score)+', '+str(mse))
+    plt.plot(df[[col]], df[[col]].values * beta + alpha, color='orange')
+    
+#    model = linear_model.RANSACRegressor(linear_model.RidgeCV(alphas=np.logspace(-4, 1, num=6), normalize=True, cv=TimeSeriesSplit(n_splits=4)), min_samples = 5, max_trials=1000)
+#    model.fit(df[df[col] != 0][[col]], df[df[col] != 0][['y']])
+#    beta = model.estimator_.coef_[0][0]
+#    alpha = model.estimator_.intercept_[0]
+#    y_predicted = model.predict(df_test[[col]])
+#    score = metrics.mean_squared_error(model.predict(df_test[[col]]), y)
+#    print(str(model.estimator_.alpha_)+', '+str(beta)+', '+str(alpha)+', '+str(score))
+#    plt.plot(df[[col]], df[[col]].values * beta + alpha, color='cyan')
+    
+    plt.show()
+
+
+#########################################################
+if True:
+    df.fillna(0, inplace=True)
+    
+    cols = df_columns(df, 'base')
+    cols = [c for c in df.columns if 'derived' in c]
+    df = df[cols + ['id', 'timestamp', 'y']]
+    
+    for col in cols + ['y']:
+        df[col] = preprocessing.scale(df[col])
+    
+#    np.std(df, axis=0)
+    
+    df_train = df[df.timestamp < 1000]
+    df_test = df[df.timestamp >= 1000]
+    
+    cca = CCA(n_components=2)
+    cca.fit(df_train.drop(['id', 'timestamp', 'y'], 1), df_train[['y']])
+    
+    weights = cca.x_weights_
+    loadings = cca.x_loadings_
+    scores = cca.x_scores_ 
+    
+    X_train_r, Y_train_r = cca.transform(df_train.drop(['id', 'timestamp', 'y'], 1), df_train[['y']])
+    X_test_r, Y_test_r = cca.transform(df_test.drop(['id', 'timestamp', 'y'], 1), df_test[['y']])
+
+    plt.figure(1)
+    plt.bar(np.arange(len(cols)), weights[:,0])
+    plt.show()
+    t = np.where(np.abs(weights) >0.2)[0]
+    print(np.array(cols)[t])
